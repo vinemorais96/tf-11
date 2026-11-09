@@ -1,64 +1,74 @@
-# CODIGO (TF 11) - APOS PASSO 6 (ENTIDADES PEQUENAS: PESSOA E ENDERECO)
+# CODIGO (TF 11) - APOS PASSO 7 (LEI DE DEMETER E DIGA, NAO PERGUNTE)
 
 
 class Cpf:
+    """Encapsula e valida o CPF."""
+
     def __init__(self, valor: str):
         if len(valor) != 11:
             raise ValueError("cpf invalido")
-        self.valor = valor
+        self._valor = valor
 
     def __str__(self) -> str:
-        return self.valor
+        return self._valor
 
 
 class Email:
+    """Encapsula e valida o e-mail."""
+
     def __init__(self, endereco: str):
         if not endereco:
             raise ValueError("email vazio")
         if "@" not in endereco:
             raise ValueError("email invalido")
-        self.endereco = endereco
+        self._endereco = endereco
 
     def __str__(self) -> str:
-        return self.endereco
+        return self._endereco
 
 
 class Cep:
+    """Encapsula e valida o CEP."""
+
     def __init__(self, codigo: str):
         if len(codigo) != 8:
             raise ValueError("cep invalido")
-        self.codigo = codigo
+        self._codigo = codigo
 
     def __str__(self) -> str:
-        return self.codigo
+        return self._codigo
 
 
 class Dinheiro:
+    """Guarda valores em centavos inteiros e realiza operacoes exatas."""
+
     def __init__(self, centavos: int):
-        self.centavos = centavos
+        self._centavos = centavos
 
     @classmethod
     def de_centavos(cls, centavos: int) -> "Dinheiro":
         return cls(centavos)
 
     def somar(self, outro: "Dinheiro") -> "Dinheiro":
-        return Dinheiro(self.centavos + outro.centavos)
+        return Dinheiro(self._centavos + outro._centavos)
 
     def subtrair(self, outro: "Dinheiro") -> "Dinheiro":
-        return Dinheiro(self.centavos - outro.centavos)
+        return Dinheiro(self._centavos - outro._centavos)
 
     def multiplicar_por_quantidade(self, quantidade: int) -> "Dinheiro":
-        return Dinheiro(self.centavos * quantidade)
+        return Dinheiro(self._centavos * quantidade)
 
     def calcular_percentual(self, percentual: int) -> "Dinheiro":
-        return Dinheiro(round(self.centavos * percentual / 100))
+        return Dinheiro(round(self._centavos * percentual / 100))
 
     def __str__(self) -> str:
-        reais = self.centavos / 100
+        reais = self._centavos / 100
         return f"R$ {reais:.2f}"
 
 
 class Status:
+    """Controla o estado de ciclo de vida do pedido."""
+
     _DESCRICOES = {
         "A": "aberto",
         "P": "pago",
@@ -66,67 +76,102 @@ class Status:
     }
 
     def __init__(self, codigo: str = "A"):
-        self.codigo = codigo
+        self._codigo = codigo
 
     def esta_aberto(self) -> bool:
-        return self.codigo == "A"
+        return self._codigo == "A"
+
+    def esta_pago(self) -> bool:
+        return self._codigo == "P"
 
     def definir_pago(self) -> None:
-        self.codigo = "P"
+        self._codigo = "P"
 
     def definir_cancelado(self) -> None:
-        self.codigo = "C"
+        self._codigo = "C"
 
     def __str__(self) -> str:
-        return self._DESCRICOES.get(self.codigo, "desconhecido")
+        return self._DESCRICOES.get(self._codigo, "")
 
 
 class Pessoa:
-    """Entidade pequena com dados de identidade civil (max 3 atributos)."""
+    """Guarda a identidade civil e formata o nome."""
 
     def __init__(self, nome: str, cpf: Cpf, email: Email):
-        self.nome = nome
-        self.cpf = cpf
-        self.email = email
+        self._nome = nome
+        self._cpf = cpf
+        self._email = email
+
+    def formatar_identificacao(self) -> str:
+        return self._nome
 
 
 class Endereco:
-    """Entidade pequena com dados de localizacao (max 3 atributos)."""
+    """Guarda a localizacao e formata a cidade."""
 
     def __init__(self, rua: str, cidade: str, cep: Cep):
-        self.rua = rua
-        self.cidade = cidade
-        self.cep = cep
+        self._rua = rua
+        self._cidade = cidade
+        self._cep = cep
+
+    def formatar_cidade(self) -> str:
+        return self._cidade
 
 
 class Cliente:
-    """Entidade pequena que associa pessoa, endereco e modalidade (max 3 atributos)."""
+    """Associa pessoa, endereco e tipo, respondendo por seus dados sem vazar dependencias."""
 
     def __init__(self, pessoa: Pessoa, endereco: Endereco, tipo: str):
-        self.pessoa = pessoa
-        self.endereco = endereco
-        self.tipo = tipo
+        self._pessoa = pessoa
+        self._endereco = endereco
+        self._tipo = tipo
+
+    def formatar_cabecalho(self) -> str:
+        nome = self._pessoa.formatar_identificacao()
+        cidade = self._endereco.formatar_cidade()
+        return f"{nome} - {cidade}"
+
+    def calcular_desconto_sobre(self, valor: Dinheiro) -> Dinheiro:
+        if self._tipo == "V":
+            return valor.calcular_percentual(10)
+        elif self._tipo == "F":
+            return valor.calcular_percentual(20)
+        else:
+            return Dinheiro.de_centavos(0)
 
 
 class Produto:
+    """Define o produto comercializado."""
+
     def __init__(self, nome: str, preco: Dinheiro):
-        self.nome = nome
-        self.preco = preco
+        self._nome = nome
+        self._preco = preco
+
+    def calcular_total_do_item(self, quantidade: int) -> Dinheiro:
+        return self._preco.multiplicar_por_quantidade(quantidade)
+
+    def descrever_linha(self, quantidade: int, subtotal: Dinheiro) -> str:
+        return f"   {quantidade} x {self._nome} = {subtotal}"
 
 
 class ItemDoPedido:
+    """Associa produto e quantidade demandada."""
+
     def __init__(self, produto: Produto, quantidade: int):
-        self.produto = produto
-        self.quantidade = quantidade
+        self._produto = produto
+        self._quantidade = quantidade
 
     def subtotal(self) -> Dinheiro:
-        return self.produto.preco.multiplicar_por_quantidade(self.quantidade)
+        return self._produto.calcular_total_do_item(self._quantidade)
 
     def imprimir_linha(self) -> None:
-        print(f"   {self.quantidade} x {self.produto.nome} = {self.subtotal()}")
+        linha = self._produto.descrever_linha(self._quantidade, self.subtotal())
+        print(linha)
 
 
 class ItensDoPedido:
+    """Colecao de primeira classe para os itens do pedido."""
+
     def __init__(self):
         self._itens = []
 
@@ -148,18 +193,20 @@ class ItensDoPedido:
 
 
 class Pedido:
+    """Aplica o principio 'diga, nao pergunte' nas transicoes de status e impressao."""
+
     def __init__(self, cliente: Cliente, itens: ItensDoPedido):
-        self.cliente = cliente
-        self.itens = itens
-        self.status = Status("A")
+        self._cliente = cliente
+        self._itens = itens
+        self._status = Status("A")
 
     def adicionar_item(self, item: ItemDoPedido) -> None:
-        self.itens.adicionar(item)
+        self._itens.adicionar(item)
 
     def pagar(self) -> bool:
-        if self.status.esta_aberto():
-            if not self.itens.esta_vazia():
-                self.status.definir_pago()
+        if self._status.esta_aberto():
+            if not self._itens.esta_vazia():
+                self._status.definir_pago()
                 return True
             else:
                 return False
@@ -167,37 +214,40 @@ class Pedido:
             return False
 
     def cancelar(self) -> bool:
-        if self.status.esta_aberto():
-            self.status.definir_cancelado()
+        if self._status.esta_aberto():
+            self._status.definir_cancelado()
             return True
         else:
             return False
 
-    def calcular_desconto(self, total: Dinheiro) -> Dinheiro:
-        if self.cliente.tipo == "V":
-            return total.calcular_percentual(10)
-        elif self.cliente.tipo == "F":
-            return total.calcular_percentual(20)
-        else:
-            return Dinheiro.de_centavos(0)
+    def esta_aberto(self) -> bool:
+        return self._status.esta_aberto()
 
     def valor_a_pagar(self) -> Dinheiro:
-        total = self.itens.calcular_total()
-        desconto = self.calcular_desconto(total)
+        total = self._itens.calcular_total()
+        desconto = self._cliente.calcular_desconto_sobre(total)
         return total.subtrair(desconto)
 
+    def somar_se_pago(self, acumulador: Dinheiro) -> Dinheiro:
+        if self._status.esta_pago():
+            return acumulador.somar(self.valor_a_pagar())
+        return acumulador
+
     def imprimir_detalhes(self, numero: int) -> None:
-        print(f"Pedido {numero} - {self.cliente.pessoa.nome} - {self.cliente.endereco.cidade}")
-        print(f"  status: {self.status}")
-        self.itens.imprimir_itens()
-        if not self.itens.esta_vazia():
-            total = self.itens.calcular_total()
-            desconto = self.calcular_desconto(total)
+        cabecalho = self._cliente.formatar_cabecalho()
+        print(f"Pedido {numero} - {cabecalho}")
+        print(f"  status: {self._status}")
+        self._itens.imprimir_itens()
+        if not self._itens.esta_vazia():
+            total = self._itens.calcular_total()
+            desconto = self._cliente.calcular_desconto_sobre(total)
             a_pagar = total.subtrair(desconto)
             print(f"  total: {total} | desconto: {desconto} | a pagar: {a_pagar}")
 
 
 class Pedidos:
+    """Colecao de primeira classe para armazenamento e consultas de pedidos."""
+
     def __init__(self):
         self._pedidos = {}
 
@@ -226,14 +276,13 @@ class Pedidos:
     def calcular_total_arrecadado(self) -> Dinheiro:
         total = Dinheiro.de_centavos(0)
         for pedido in self._pedidos.values():
-            if str(pedido.status) == "pago":
-                total = total.somar(pedido.valor_a_pagar())
+            total = pedido.somar_se_pago(total)
         return total
 
     def contar_pedidos_abertos(self) -> int:
         contador = 0
         for pedido in self._pedidos.values():
-            if pedido.status.esta_aberto():
+            if pedido.esta_aberto():
                 contador += 1
         return contador
 
