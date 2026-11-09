@@ -1,6 +1,86 @@
-# CODIGO (TF 11) - APOS PASSO 3 (NORMALIZACAO)
+# CODIGO (TF 11) - APOS PASSO 4 (CLASSES DE VALOR / PRIMITIVOS EMBRULHADOS)
 
 pedidos = []  # lista global de pedidos
+
+
+class Cpf:
+    def __init__(self, valor: str):
+        if len(valor) != 11:
+            raise ValueError("cpf invalido")
+        self.valor = valor
+
+    def __str__(self) -> str:
+        return self.valor
+
+
+class Email:
+    def __init__(self, endereco: str):
+        if not endereco:
+            raise ValueError("email vazio")
+        if "@" not in endereco:
+            raise ValueError("email invalido")
+        self.endereco = endereco
+
+    def __str__(self) -> str:
+        return self.endereco
+
+
+class Cep:
+    def __init__(self, codigo: str):
+        if len(codigo) != 8:
+            raise ValueError("cep invalido")
+        self.codigo = codigo
+
+    def __str__(self) -> str:
+        return self.codigo
+
+
+class Dinheiro:
+    def __init__(self, centavos: int):
+        self.centavos = centavos
+
+    @classmethod
+    def de_centavos(cls, centavos: int) -> "Dinheiro":
+        return cls(centavos)
+
+    def somar(self, outro: "Dinheiro") -> "Dinheiro":
+        return Dinheiro(self.centavos + outro.centavos)
+
+    def subtrair(self, outro: "Dinheiro") -> "Dinheiro":
+        return Dinheiro(self.centavos - outro.centavos)
+
+    def multiplicar_por_quantidade(self, quantidade: int) -> "Dinheiro":
+        return Dinheiro(self.centavos * quantidade)
+
+    def calcular_percentual(self, percentual: int) -> "Dinheiro":
+        return Dinheiro(round(self.centavos * percentual / 100))
+
+    def __str__(self) -> str:
+        reais = self.centavos / 100
+        return f"R$ {reais:.2f}"
+
+
+class Status:
+    _DESCRICOES = {
+        "A": "aberto",
+        "P": "pago",
+        "C": "cancelado",
+    }
+
+    def __init__(self, codigo: str = "A"):
+        self.codigo = codigo
+
+    def esta_aberto(self) -> bool:
+        return self.codigo == "A"
+
+    def definir_pago(self) -> None:
+        self.codigo = "P"
+
+    def definir_cancelado(self) -> None:
+        self.codigo = "C"
+
+    def __str__(self) -> str:
+        return self._DESCRICOES.get(self.codigo, "desconhecido")
 
 
 class Cliente:
@@ -15,65 +95,45 @@ class Cliente:
 
 
 class Produto:
-    def __init__(self, nome, preco):
+    def __init__(self, nome: str, preco: Dinheiro):
         self.nome = nome
         self.preco = preco
 
 
 class ItemDoPedido:
-    def __init__(self, produto, quantidade):
+    def __init__(self, produto: Produto, quantidade: int):
         self.produto = produto
         self.quantidade = quantidade
 
-    def subtotal(self):
-        return self.quantidade * self.produto.preco
+    def subtotal(self) -> Dinheiro:
+        return self.produto.preco.multiplicar_por_quantidade(self.quantidade)
 
 
 class Pedido:
-    def __init__(self, numero, cliente):
+    def __init__(self, numero: int, cliente: Cliente):
         self.numero = numero
         self.cliente = cliente
         self.itens = []
-        self.status = "A"
-
-
-def novo_pedido(numero, cliente):
-    # Validacao provisoria (no Passo 4 vai para dentro das classes de valor)
-    if len(cliente.cpf) != 11:
-        print(f"pedido {numero} recusado: cpf invalido")
-        return None
-    if not cliente.email or "@" not in cliente.email:
-        if not cliente.email:
-            print(f"pedido {numero} recusado: email vazio")
-        else:
-            print(f"pedido {numero} recusado: email invalido")
-        return None
-    if len(cliente.cep) != 8:
-        print(f"pedido {numero} recusado: cep invalido")
-        return None
-
-    pedido = Pedido(numero, cliente)
-    pedidos.append(pedido)
-    return pedido
+        self.status = Status("A")
 
 
 def adicionar_item(pedido, produto, quantidade):
     pedido.itens.append(ItemDoPedido(produto, quantidade))
 
 
-def calcular_desconto(tipo, valor):
+def calcular_desconto(tipo, valor: Dinheiro) -> Dinheiro:
     if tipo == "V":
-        return valor * 0.10
+        return valor.calcular_percentual(10)
     elif tipo == "F":
-        return valor * 0.20
+        return valor.calcular_percentual(20)
     else:
-        return 0.0
+        return Dinheiro.de_centavos(0)
 
 
 def pagar(pedido):
-    if pedido.status == "A":
+    if pedido.status.esta_aberto():
         if len(pedido.itens) > 0:
-            pedido.status = "P"
+            pedido.status.definir_pago()
             return True
         else:
             return False
@@ -82,97 +142,110 @@ def pagar(pedido):
 
 
 def cancelar(pedido):
-    if pedido.status == "A":
-        pedido.status = "C"
+    if pedido.status.esta_aberto():
+        pedido.status.definir_cancelado()
         return True
     else:
         return False
 
 
-def descrever_status(status):
-    if status == "A":
-        return "aberto"
-    elif status == "P":
-        return "pago"
-    elif status == "C":
-        return "cancelado"
-    else:
-        return "desconhecido"
-
-
-def calcular_valor_a_pagar(pedido):
-    total = sum(item.subtotal() for item in pedido.itens)
+def calcular_valor_a_pagar(pedido) -> Dinheiro:
+    total = Dinheiro.de_centavos(0)
+    for item in pedido.itens:
+        total = total.somar(item.subtotal())
     desconto = calcular_desconto(pedido.cliente.tipo, total)
-    return total - desconto
+    return total.subtrair(desconto)
 
 
 def relatorio():
     for pedido in pedidos:
         print(f"Pedido {pedido.numero} - {pedido.cliente.nome} - {pedido.cliente.cidade}")
-        print(f"  status: {descrever_status(pedido.status)}")
-        total = 0
+        print(f"  status: {pedido.status}")
+        total = Dinheiro.de_centavos(0)
         for item in pedido.itens:
             subtotal = item.subtotal()
-            print(f"   {item.quantidade} x {item.produto.nome} = R$ {subtotal:.2f}")
-            total += subtotal
+            print(f"   {item.quantidade} x {item.produto.nome} = {subtotal}")
+            total = total.somar(subtotal)
         if len(pedido.itens) > 0:
             desconto = calcular_desconto(pedido.cliente.tipo, total)
-            a_pagar = total - desconto
-            print(f"  total: R$ {total:.2f} | desconto: R$ {desconto:.2f} | a pagar: R$ {a_pagar:.2f}")
+            a_pagar = total.subtrair(desconto)
+            print(f"  total: {total} | desconto: {desconto} | a pagar: {a_pagar}")
 
 
-def total_arrecadado():
-    total = 0
+def total_arrecadado() -> Dinheiro:
+    total = Dinheiro.de_centavos(0)
     for pedido in pedidos:
-        if pedido.status == "P":
-            total += calcular_valor_a_pagar(pedido)
+        if str(pedido.status) == "pago":
+            total = total.somar(calcular_valor_a_pagar(pedido))
     return total
 
 
-def total_pedidos_abertos():
+def total_pedidos_abertos() -> int:
     contador = 0
     for pedido in pedidos:
-        if pedido.status == "A":
+        if pedido.status.esta_aberto():
             contador += 1
     return contador
 
 
-# PRODUTOS NORMALIZADOS (criados uma vez so)
-caderno = Produto("Caderno", 15.50)
-caneta = Produto("Caneta", 2.50)
-livro = Produto("Livro", 89.50)
-fone = Produto("Fone", 60.00)
+def registrar_pedido(numero, fabricar_pedido):
+    try:
+        pedido = fabricar_pedido()
+        pedidos.append(pedido)
+        return pedido
+    except ValueError as erro:
+        print(f"pedido {numero} recusado: {erro}")
+        return None
 
-# CLIENTES NORMALIZADOS (Ana criada uma unica vez)
-cliente_ana = Cliente("Ana Souza", "11122233344", "ana@email.com", "Rua A, 10", "Sorocaba", "18010000", "V")
-cliente_beto = Cliente("Beto Lima", "123", "beto@email.com", "Rua B, 20", "Itu", "13300000", "N")
-cliente_caio = Cliente("Caio Cruz", "22233344455", "caiosemarroba", "Rua C, 30", "Salto", "13320000", "N")
-cliente_diego = Cliente("Diego Rocha", "33344455566", "diego@email.com", "Rua D, 40", "Itu", "13301000", "N")
-cliente_eva = Cliente("Eva Nunes", "44455566677", "eva@email.com", "Rua E, 50", "Itu", "13302000", "F")
-cliente_fay = Cliente("Fay Dias", "55566677788", "fay@email.com", "Rua F, 60", "Salto", "0", "N")
-cliente_gil = Cliente("Gil Alves", "66677788899", "gil@email.com", "Rua G, 70", "Sorocaba", "18020000", "N")
+
+# PRODUTOS (precos em centavos com classe Dinheiro)
+caderno = Produto("Caderno", Dinheiro.de_centavos(1550))
+caneta = Produto("Caneta", Dinheiro.de_centavos(250))
+livro = Produto("Livro", Dinheiro.de_centavos(8950))
+fone = Produto("Fone", Dinheiro.de_centavos(6000))
+
+# CLIENTE REUTILIZADO (Ana)
+cliente_ana = Cliente("Ana Souza", Cpf("11122233344"), Email("ana@email.com"), "Rua A, 10", "Sorocaba", Cep("18010000"), "V")
 
 # ROTEIRO
-pedido_da_ana = novo_pedido(1, cliente_ana)
+pedido_da_ana = registrar_pedido(
+    1, lambda: Pedido(1, cliente_ana)
+)
 adicionar_item(pedido_da_ana, caderno, 2)
 adicionar_item(pedido_da_ana, caneta, 5)
 
-pedido_do_beto = novo_pedido(2, cliente_beto)
+pedido_do_beto = registrar_pedido(
+    2, lambda: Pedido(2, Cliente("Beto Lima", Cpf("123"), Email("beto@email.com"), "Rua B, 20", "Itu", Cep("13300000"), "N"))
+)
 
-# Pedido 3 aponta para o MESMO objeto cliente_ana
-pedido_da_ana_dois = novo_pedido(3, cliente_ana)
+pedido_da_ana_dois = registrar_pedido(
+    3, lambda: Pedido(3, cliente_ana)
+)
 adicionar_item(pedido_da_ana_dois, livro, 1)
 
-pedido_do_caio = novo_pedido(4, cliente_caio)
+pedido_do_caio = registrar_pedido(
+    4, lambda: Pedido(4, Cliente("Caio Cruz", Cpf("22233344455"), Email("caiosemarroba"), "Rua C, 30", "Salto", Cep("13320000"), "N"))
+)
 
-pedido_do_diego = novo_pedido(5, cliente_diego)
+cliente_diego = Cliente("Diego Rocha", Cpf("33344455566"), Email("diego@email.com"), "Rua D, 40", "Itu", Cep("13301000"), "N")
+pedido_do_diego = registrar_pedido(
+    5, lambda: Pedido(5, cliente_diego)
+)
 
-pedido_da_eva = novo_pedido(6, cliente_eva)
+cliente_eva = Cliente("Eva Nunes", Cpf("44455566677"), Email("eva@email.com"), "Rua E, 50", "Itu", Cep("13302000"), "F")
+pedido_da_eva = registrar_pedido(
+    6, lambda: Pedido(6, cliente_eva)
+)
 adicionar_item(pedido_da_eva, fone, 1)
 
-pedido_da_fay = novo_pedido(7, cliente_fay)
+pedido_da_fay = registrar_pedido(
+    7, lambda: Pedido(7, Cliente("Fay Dias", Cpf("55566677788"), Email("fay@email.com"), "Rua F, 60", "Salto", Cep("0"), "N"))
+)
 
-pedido_do_gil = novo_pedido(8, cliente_gil)
+cliente_gil = Cliente("Gil Alves", Cpf("66677788899"), Email("gil@email.com"), "Rua G, 70", "Sorocaba", Cep("18020000"), "N")
+pedido_do_gil = registrar_pedido(
+    8, lambda: Pedido(8, cliente_gil)
+)
 adicionar_item(pedido_do_gil, fone, 2)
 
 print(f"pagar 1: {pagar(pedido_da_ana)}")
@@ -183,5 +256,5 @@ print(f"cancelar 5: {cancelar(pedido_do_diego)}")
 print(f"cancelar 1: {cancelar(pedido_da_ana)}")
 
 relatorio()
-print(f"arrecadado: R$ {total_arrecadado():.2f}")
+print(f"arrecadado: {total_arrecadado()}")
 print(f"abertos: {total_pedidos_abertos()}") 
