@@ -1,72 +1,64 @@
-# CODIGO FEIO DE PROPOSITO (TF 11) - APOS PASSO 2 (SEM ABREVIACOES)
+# CODIGO (TF 11) - APOS PASSO 3 (NORMALIZACAO)
 
-pedidos = []  # todos os pedidos da loja: lista solta, global
+pedidos = []  # lista global de pedidos
 
 
-class Pedido:
-    def __init__(
-        self,
-        numero,
-        nome_do_cliente,
-        cpf_do_cliente,
-        email_do_cliente,
-        rua,
-        cidade,
-        cep,
-        tipo,
-    ):
-        self.numero = numero
-        self.nome_do_cliente = nome_do_cliente
-        self.cpf_do_cliente = cpf_do_cliente
-        self.email_do_cliente = email_do_cliente
+class Cliente:
+    def __init__(self, nome, cpf, email, rua, cidade, cep, tipo):
+        self.nome = nome
+        self.cpf = cpf
+        self.email = email
         self.rua = rua
         self.cidade = cidade
         self.cep = cep
         self.tipo = tipo
+
+
+class Produto:
+    def __init__(self, nome, preco):
+        self.nome = nome
+        self.preco = preco
+
+
+class ItemDoPedido:
+    def __init__(self, produto, quantidade):
+        self.produto = produto
+        self.quantidade = quantidade
+
+    def subtotal(self):
+        return self.quantidade * self.produto.preco
+
+
+class Pedido:
+    def __init__(self, numero, cliente):
+        self.numero = numero
+        self.cliente = cliente
         self.itens = []
         self.status = "A"
 
 
-def novo_pedido(
-    numero,
-    nome_do_cliente,
-    cpf_do_cliente,
-    email_do_cliente,
-    rua,
-    cidade,
-    cep,
-    tipo,
-):
-    # Hadouken de validacao (sera eliminado nos proximos passos)
-    if len(cpf_do_cliente) != 11:
+def novo_pedido(numero, cliente):
+    # Validacao provisoria (no Passo 4 vai para dentro das classes de valor)
+    if len(cliente.cpf) != 11:
         print(f"pedido {numero} recusado: cpf invalido")
         return None
-    if not email_do_cliente or "@" not in email_do_cliente:
-        if not email_do_cliente:
+    if not cliente.email or "@" not in cliente.email:
+        if not cliente.email:
             print(f"pedido {numero} recusado: email vazio")
         else:
             print(f"pedido {numero} recusado: email invalido")
         return None
-    if len(cep) != 8:
+    if len(cliente.cep) != 8:
         print(f"pedido {numero} recusado: cep invalido")
         return None
 
-    pedido = Pedido(
-        numero,
-        nome_do_cliente,
-        cpf_do_cliente,
-        email_do_cliente,
-        rua,
-        cidade,
-        cep,
-        tipo,
-    )
+    pedido = Pedido(numero, cliente)
     pedidos.append(pedido)
     return pedido
 
 
-def adicionar_item(pedido, produto, quantidade, preco):
-    pedido.itens.append([produto, quantidade, preco])
+def adicionar_item(pedido, produto, quantidade):
+    pedido.itens.append(ItemDoPedido(produto, quantidade))
 
 
 def calcular_desconto(tipo, valor):
@@ -109,22 +101,22 @@ def descrever_status(status):
 
 
 def calcular_valor_a_pagar(pedido):
-    total = sum(item[1] * item[2] for item in pedido.itens)
-    desconto = calcular_desconto(pedido.tipo, total)
+    total = sum(item.subtotal() for item in pedido.itens)
+    desconto = calcular_desconto(pedido.cliente.tipo, total)
     return total - desconto
 
 
 def relatorio():
     for pedido in pedidos:
-        print(f"Pedido {pedido.numero} - {pedido.nome_do_cliente} - {pedido.cidade}")
+        print(f"Pedido {pedido.numero} - {pedido.cliente.nome} - {pedido.cliente.cidade}")
         print(f"  status: {descrever_status(pedido.status)}")
         total = 0
         for item in pedido.itens:
-            subtotal = item[1] * item[2]
-            print(f"   {item[1]} x {item[0]} = R$ {subtotal:.2f}")
+            subtotal = item.subtotal()
+            print(f"   {item.quantidade} x {item.produto.nome} = R$ {subtotal:.2f}")
             total += subtotal
         if len(pedido.itens) > 0:
-            desconto = calcular_desconto(pedido.tipo, total)
+            desconto = calcular_desconto(pedido.cliente.tipo, total)
             a_pagar = total - desconto
             print(f"  total: R$ {total:.2f} | desconto: R$ {desconto:.2f} | a pagar: R$ {a_pagar:.2f}")
 
@@ -145,43 +137,43 @@ def total_pedidos_abertos():
     return contador
 
 
-# ROTEIRO DA LOJA (com nomes descritivos)
-pedido_da_ana = novo_pedido(
-    1, "Ana Souza", "11122233344", "ana@email.com", "Rua A, 10", "Sorocaba", "18010000", "V"
-)
-adicionar_item(pedido_da_ana, "Caderno", 2, 15.50)
-adicionar_item(pedido_da_ana, "Caneta", 5, 2.50)
+# PRODUTOS NORMALIZADOS (criados uma vez so)
+caderno = Produto("Caderno", 15.50)
+caneta = Produto("Caneta", 2.50)
+livro = Produto("Livro", 89.50)
+fone = Produto("Fone", 60.00)
 
-pedido_do_beto = novo_pedido(
-    2, "Beto Lima", "123", "beto@email.com", "Rua B, 20", "Itu", "13300000", "N"
-)
+# CLIENTES NORMALIZADOS (Ana criada uma unica vez)
+cliente_ana = Cliente("Ana Souza", "11122233344", "ana@email.com", "Rua A, 10", "Sorocaba", "18010000", "V")
+cliente_beto = Cliente("Beto Lima", "123", "beto@email.com", "Rua B, 20", "Itu", "13300000", "N")
+cliente_caio = Cliente("Caio Cruz", "22233344455", "caiosemarroba", "Rua C, 30", "Salto", "13320000", "N")
+cliente_diego = Cliente("Diego Rocha", "33344455566", "diego@email.com", "Rua D, 40", "Itu", "13301000", "N")
+cliente_eva = Cliente("Eva Nunes", "44455566677", "eva@email.com", "Rua E, 50", "Itu", "13302000", "F")
+cliente_fay = Cliente("Fay Dias", "55566677788", "fay@email.com", "Rua F, 60", "Salto", "0", "N")
+cliente_gil = Cliente("Gil Alves", "66677788899", "gil@email.com", "Rua G, 70", "Sorocaba", "18020000", "N")
 
-pedido_da_ana_dois = novo_pedido(
-    3, "Ana Souza", "11122233344", "ana@email.com", "Rua A, 10", "Sorocaba", "18010000", "V"
-)
-adicionar_item(pedido_da_ana_dois, "Livro", 1, 89.50)
+# ROTEIRO
+pedido_da_ana = novo_pedido(1, cliente_ana)
+adicionar_item(pedido_da_ana, caderno, 2)
+adicionar_item(pedido_da_ana, caneta, 5)
 
-pedido_do_caio = novo_pedido(
-    4, "Caio Cruz", "22233344455", "caiosemarroba", "Rua C, 30", "Salto", "13320000", "N"
-)
+pedido_do_beto = novo_pedido(2, cliente_beto)
 
-pedido_do_diego = novo_pedido(
-    5, "Diego Rocha", "33344455566", "diego@email.com", "Rua D, 40", "Itu", "13301000", "N"
-)
+# Pedido 3 aponta para o MESMO objeto cliente_ana
+pedido_da_ana_dois = novo_pedido(3, cliente_ana)
+adicionar_item(pedido_da_ana_dois, livro, 1)
 
-pedido_da_eva = novo_pedido(
-    6, "Eva Nunes", "44455566677", "eva@email.com", "Rua E, 50", "Itu", "13302000", "F"
-)
-adicionar_item(pedido_da_eva, "Fone", 1, 60.00)
+pedido_do_caio = novo_pedido(4, cliente_caio)
 
-pedido_da_fay = novo_pedido(
-    7, "Fay Dias", "55566677788", "fay@email.com", "Rua F, 60", "Salto", "0", "N"
-)
+pedido_do_diego = novo_pedido(5, cliente_diego)
 
-pedido_do_gil = novo_pedido(
-    8, "Gil Alves", "66677788899", "gil@email.com", "Rua G, 70", "Sorocaba", "18020000", "N"
-)
-adicionar_item(pedido_do_gil, "Fone", 2, 60.00)
+pedido_da_eva = novo_pedido(6, cliente_eva)
+adicionar_item(pedido_da_eva, fone, 1)
+
+pedido_da_fay = novo_pedido(7, cliente_fay)
+
+pedido_do_gil = novo_pedido(8, cliente_gil)
+adicionar_item(pedido_do_gil, fone, 2)
 
 print(f"pagar 1: {pagar(pedido_da_ana)}")
 print(f"pagar 3: {pagar(pedido_da_ana_dois)}")
