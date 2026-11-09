@@ -1,8 +1,8 @@
-# CODIGO (TF 11) - APOS PASSO 7 (LEI DE DEMETER E DIGA, NAO PERGUNTE)
+"""Modulo de processamento de pedidos aplicando principios de Object Calisthenics."""
 
 
 class Cpf:
-    """Encapsula e valida o CPF."""
+    """Encapsula e valida o documento de identificacao pessoal."""
 
     def __init__(self, valor: str):
         if len(valor) != 11:
@@ -14,7 +14,7 @@ class Cpf:
 
 
 class Email:
-    """Encapsula e valida o e-mail."""
+    """Encapsula e valida o endereco de correio eletronico."""
 
     def __init__(self, endereco: str):
         if not endereco:
@@ -28,7 +28,7 @@ class Email:
 
 
 class Cep:
-    """Encapsula e valida o CEP."""
+    """Encapsula e valida o codigo de enderecamento postal."""
 
     def __init__(self, codigo: str):
         if len(codigo) != 8:
@@ -40,7 +40,7 @@ class Cep:
 
 
 class Dinheiro:
-    """Guarda valores em centavos inteiros e realiza operacoes exatas."""
+    """Representa valores monetarios internamente em centavos inteiros."""
 
     def __init__(self, centavos: int):
         self._centavos = centavos
@@ -67,7 +67,7 @@ class Dinheiro:
 
 
 class Status:
-    """Controla o estado de ciclo de vida do pedido."""
+    """Controla o estado de ciclo de vida de um pedido."""
 
     _DESCRICOES = {
         "A": "aberto",
@@ -94,8 +94,29 @@ class Status:
         return self._DESCRICOES.get(self._codigo, "")
 
 
+class TipoClienteNormal:
+    """Regra polimorfica de desconto para cliente normal (0%)."""
+
+    def calcular_desconto(self, valor: Dinheiro) -> Dinheiro:
+        return valor.calcular_percentual(0)
+
+
+class TipoClienteVip:
+    """Regra polimorfica de desconto para cliente VIP (10%)."""
+
+    def calcular_desconto(self, valor: Dinheiro) -> Dinheiro:
+        return valor.calcular_percentual(10)
+
+
+class TipoClienteFuncionario:
+    """Regra polimorfica de desconto para cliente funcionario (20%)."""
+
+    def calcular_desconto(self, valor: Dinheiro) -> Dinheiro:
+        return valor.calcular_percentual(20)
+
+
 class Pessoa:
-    """Guarda a identidade civil e formata o nome."""
+    """Agrupa os dados de identidade civil."""
 
     def __init__(self, nome: str, cpf: Cpf, email: Email):
         self._nome = nome
@@ -107,7 +128,7 @@ class Pessoa:
 
 
 class Endereco:
-    """Guarda a localizacao e formata a cidade."""
+    """Agrupa os dados de localizacao."""
 
     def __init__(self, rua: str, cidade: str, cep: Cep):
         self._rua = rua
@@ -119,9 +140,9 @@ class Endereco:
 
 
 class Cliente:
-    """Associa pessoa, endereco e tipo, respondendo por seus dados sem vazar dependencias."""
+    """Representa a entidade de cliente com polimorfismo de regras de desconto."""
 
-    def __init__(self, pessoa: Pessoa, endereco: Endereco, tipo: str):
+    def __init__(self, pessoa: Pessoa, endereco: Endereco, tipo: object):
         self._pessoa = pessoa
         self._endereco = endereco
         self._tipo = tipo
@@ -132,12 +153,7 @@ class Cliente:
         return f"{nome} - {cidade}"
 
     def calcular_desconto_sobre(self, valor: Dinheiro) -> Dinheiro:
-        if self._tipo == "V":
-            return valor.calcular_percentual(10)
-        elif self._tipo == "F":
-            return valor.calcular_percentual(20)
-        else:
-            return Dinheiro.de_centavos(0)
+        return self._tipo.calcular_desconto(valor)
 
 
 class Produto:
@@ -193,7 +209,7 @@ class ItensDoPedido:
 
 
 class Pedido:
-    """Aplica o principio 'diga, nao pergunte' nas transicoes de status e impressao."""
+    """Controla o ciclo de vida aplicando fail-first e limite de 1 nivel de indentacao."""
 
     def __init__(self, cliente: Cliente, itens: ItensDoPedido):
         self._cliente = cliente
@@ -204,21 +220,18 @@ class Pedido:
         self._itens.adicionar(item)
 
     def pagar(self) -> bool:
-        if self._status.esta_aberto():
-            if not self._itens.esta_vazia():
-                self._status.definir_pago()
-                return True
-            else:
-                return False
-        else:
+        if not self._status.esta_aberto():
             return False
+        if self._itens.esta_vazia():
+            return False
+        self._status.definir_pago()
+        return True
 
     def cancelar(self) -> bool:
-        if self._status.esta_aberto():
-            self._status.definir_cancelado()
-            return True
-        else:
+        if not self._status.esta_aberto():
             return False
+        self._status.definir_cancelado()
+        return True
 
     def esta_aberto(self) -> bool:
         return self._status.esta_aberto()
@@ -229,20 +242,24 @@ class Pedido:
         return total.subtrair(desconto)
 
     def somar_se_pago(self, acumulador: Dinheiro) -> Dinheiro:
-        if self._status.esta_pago():
-            return acumulador.somar(self.valor_a_pagar())
-        return acumulador
+        if not self._status.esta_pago():
+            return acumulador
+        return acumulador.somar(self.valor_a_pagar())
 
     def imprimir_detalhes(self, numero: int) -> None:
         cabecalho = self._cliente.formatar_cabecalho()
         print(f"Pedido {numero} - {cabecalho}")
         print(f"  status: {self._status}")
         self._itens.imprimir_itens()
-        if not self._itens.esta_vazia():
-            total = self._itens.calcular_total()
-            desconto = self._cliente.calcular_desconto_sobre(total)
-            a_pagar = total.subtrair(desconto)
-            print(f"  total: {total} | desconto: {desconto} | a pagar: {a_pagar}")
+        self._imprimir_resumo_financeiro()
+
+    def _imprimir_resumo_financeiro(self) -> None:
+        if self._itens.esta_vazia():
+            return
+        total = self._itens.calcular_total()
+        desconto = self._cliente.calcular_desconto_sobre(total)
+        a_pagar = total.subtrair(desconto)
+        print(f"  total: {total} | desconto: {desconto} | a pagar: {a_pagar}")
 
 
 class Pedidos:
@@ -259,15 +276,15 @@ class Pedidos:
 
     def pagar_pedido(self, numero: int) -> bool:
         pedido = self.obter_pedido(numero)
-        if pedido:
-            return pedido.pagar()
-        return False
+        if not pedido:
+            return False
+        return pedido.pagar()
 
     def cancelar_pedido(self, numero: int) -> bool:
         pedido = self.obter_pedido(numero)
-        if pedido:
-            return pedido.cancelar()
-        return False
+        if not pedido:
+            return False
+        return pedido.cancelar()
 
     def imprimir_relatorio(self) -> None:
         for numero, pedido in self._pedidos.items():
@@ -282,8 +299,7 @@ class Pedidos:
     def contar_pedidos_abertos(self) -> int:
         contador = 0
         for pedido in self._pedidos.values():
-            if pedido.esta_aberto():
-                contador += 1
+            contador += 1 if pedido.esta_aberto() else 0
         return contador
 
 
@@ -306,6 +322,11 @@ def registrar_pedido(numero, fabricar_pedido):
         return None
 
 
+# TIPOS POLIMORFICOS DE CLIENTE (substituem ifs/elifs de tipos)
+tipo_normal = TipoClienteNormal()
+tipo_vip = TipoClienteVip()
+tipo_funcionario = TipoClienteFuncionario()
+
 # PRODUTOS
 caderno = Produto("Caderno", Dinheiro.de_centavos(1550))
 caneta = Produto("Caneta", Dinheiro.de_centavos(250))
@@ -313,10 +334,10 @@ livro = Produto("Livro", Dinheiro.de_centavos(8950))
 fone = Produto("Fone", Dinheiro.de_centavos(6000))
 
 # CLIENTES
-cliente_ana = criar_cliente("Ana Souza", "11122233344", "ana@email.com", "Rua A, 10", "Sorocaba", "18010000", "V")
-cliente_diego = criar_cliente("Diego Rocha", "33344455566", "diego@email.com", "Rua D, 40", "Itu", "13301000", "N")
-cliente_eva = criar_cliente("Eva Nunes", "44455566677", "eva@email.com", "Rua E, 50", "Itu", "13302000", "F")
-cliente_gil = criar_cliente("Gil Alves", "66677788899", "gil@email.com", "Rua G, 70", "Sorocaba", "18020000", "N")
+cliente_ana = criar_cliente("Ana Souza", "11122233344", "ana@email.com", "Rua A, 10", "Sorocaba", "18010000", tipo_vip)
+cliente_diego = criar_cliente("Diego Rocha", "33344455566", "diego@email.com", "Rua D, 40", "Itu", "13301000", tipo_normal)
+cliente_eva = criar_cliente("Eva Nunes", "44455566677", "eva@email.com", "Rua E, 50", "Itu", "13302000", tipo_funcionario)
+cliente_gil = criar_cliente("Gil Alves", "66677788899", "gil@email.com", "Rua G, 70", "Sorocaba", "18020000", tipo_normal)
 
 # ROTEIRO
 itens_1 = ItensDoPedido()
@@ -325,7 +346,7 @@ itens_1.adicionar(ItemDoPedido(caneta, 5))
 pedido_da_ana = registrar_pedido(1, lambda: Pedido(cliente_ana, itens_1))
 
 pedido_do_beto = registrar_pedido(
-    2, lambda: Pedido(criar_cliente("Beto Lima", "123", "beto@email.com", "Rua B, 20", "Itu", "13300000", "N"), ItensDoPedido())
+    2, lambda: Pedido(criar_cliente("Beto Lima", "123", "beto@email.com", "Rua B, 20", "Itu", "13300000", tipo_normal), ItensDoPedido())
 )
 
 itens_3 = ItensDoPedido()
@@ -333,7 +354,7 @@ itens_3.adicionar(ItemDoPedido(livro, 1))
 pedido_da_ana_dois = registrar_pedido(3, lambda: Pedido(cliente_ana, itens_3))
 
 pedido_do_caio = registrar_pedido(
-    4, lambda: Pedido(criar_cliente("Caio Cruz", "22233344455", "caiosemarroba", "Rua C, 30", "Salto", "13320000", "N"), ItensDoPedido())
+    4, lambda: Pedido(criar_cliente("Caio Cruz", "22233344455", "caiosemarroba", "Rua C, 30", "Salto", "13320000", tipo_normal), ItensDoPedido())
 )
 
 pedido_do_diego = registrar_pedido(
@@ -345,7 +366,7 @@ itens_6.adicionar(ItemDoPedido(fone, 1))
 pedido_da_eva = registrar_pedido(6, lambda: Pedido(cliente_eva, itens_6))
 
 pedido_da_fay = registrar_pedido(
-    7, lambda: Pedido(criar_cliente("Fay Dias", "55566677788", "fay@email.com", "Rua F, 60", "Salto", "0", "N"), ItensDoPedido())
+    7, lambda: Pedido(criar_cliente("Fay Dias", "55566677788", "fay@email.com", "Rua F, 60", "Salto", "0", tipo_normal), ItensDoPedido())
 )
 
 itens_8 = ItensDoPedido()
