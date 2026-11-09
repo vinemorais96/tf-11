@@ -1,4 +1,4 @@
-# CODIGO (TF 11) - APOS PASSO 5 (COLECOES DE PRIMEIRA CLASSE)
+# CODIGO (TF 11) - APOS PASSO 6 (ENTIDADES PEQUENAS: PESSOA E ENDERECO)
 
 
 class Cpf:
@@ -81,14 +81,30 @@ class Status:
         return self._DESCRICOES.get(self.codigo, "desconhecido")
 
 
-class Cliente:
-    def __init__(self, nome, cpf, email, rua, cidade, cep, tipo):
+class Pessoa:
+    """Entidade pequena com dados de identidade civil (max 3 atributos)."""
+
+    def __init__(self, nome: str, cpf: Cpf, email: Email):
         self.nome = nome
         self.cpf = cpf
         self.email = email
+
+
+class Endereco:
+    """Entidade pequena com dados de localizacao (max 3 atributos)."""
+
+    def __init__(self, rua: str, cidade: str, cep: Cep):
         self.rua = rua
         self.cidade = cidade
         self.cep = cep
+
+
+class Cliente:
+    """Entidade pequena que associa pessoa, endereco e modalidade (max 3 atributos)."""
+
+    def __init__(self, pessoa: Pessoa, endereco: Endereco, tipo: str):
+        self.pessoa = pessoa
+        self.endereco = endereco
         self.tipo = tipo
 
 
@@ -111,8 +127,6 @@ class ItemDoPedido:
 
 
 class ItensDoPedido:
-    """Colecao de primeira classe: guarda unica e exclusivamente a lista de itens."""
-
     def __init__(self):
         self._itens = []
 
@@ -173,7 +187,7 @@ class Pedido:
         return total.subtrair(desconto)
 
     def imprimir_detalhes(self, numero: int) -> None:
-        print(f"Pedido {numero} - {self.cliente.nome} - {self.cliente.cidade}")
+        print(f"Pedido {numero} - {self.cliente.pessoa.nome} - {self.cliente.endereco.cidade}")
         print(f"  status: {self.status}")
         self.itens.imprimir_itens()
         if not self.itens.esta_vazia():
@@ -184,8 +198,6 @@ class Pedido:
 
 
 class Pedidos:
-    """Colecao de primeira classe: guarda unica e exclusivamente o dicionario numero -> pedido."""
-
     def __init__(self):
         self._pedidos = {}
 
@@ -226,8 +238,13 @@ class Pedidos:
         return contador
 
 
-# Instancia unica da colecao de pedidos
 pedidos = Pedidos()
+
+
+def criar_cliente(nome, cpf_str, email_str, rua, cidade, cep_str, tipo):
+    pessoa = Pessoa(nome, Cpf(cpf_str), Email(email_str))
+    endereco = Endereco(rua, cidade, Cep(cep_str))
+    return Cliente(pessoa, endereco, tipo)
 
 
 def registrar_pedido(numero, fabricar_pedido):
@@ -246,11 +263,11 @@ caneta = Produto("Caneta", Dinheiro.de_centavos(250))
 livro = Produto("Livro", Dinheiro.de_centavos(8950))
 fone = Produto("Fone", Dinheiro.de_centavos(6000))
 
-# CLIENTE REUTILIZADO (Ana)
-cliente_ana = Cliente("Ana Souza", Cpf("11122233344"), Email("ana@email.com"), "Rua A, 10", "Sorocaba", Cep("18010000"), "V")
-cliente_diego = Cliente("Diego Rocha", Cpf("33344455566"), Email("diego@email.com"), "Rua D, 40", "Itu", Cep("13301000"), "N")
-cliente_eva = Cliente("Eva Nunes", Cpf("44455566677"), Email("eva@email.com"), "Rua E, 50", "Itu", Cep("13302000"), "F")
-cliente_gil = Cliente("Gil Alves", Cpf("66677788899"), Email("gil@email.com"), "Rua G, 70", "Sorocaba", Cep("18020000"), "N")
+# CLIENTES
+cliente_ana = criar_cliente("Ana Souza", "11122233344", "ana@email.com", "Rua A, 10", "Sorocaba", "18010000", "V")
+cliente_diego = criar_cliente("Diego Rocha", "33344455566", "diego@email.com", "Rua D, 40", "Itu", "13301000", "N")
+cliente_eva = criar_cliente("Eva Nunes", "44455566677", "eva@email.com", "Rua E, 50", "Itu", "13302000", "F")
+cliente_gil = criar_cliente("Gil Alves", "66677788899", "gil@email.com", "Rua G, 70", "Sorocaba", "18020000", "N")
 
 # ROTEIRO
 itens_1 = ItensDoPedido()
@@ -258,18 +275,16 @@ itens_1.adicionar(ItemDoPedido(caderno, 2))
 itens_1.adicionar(ItemDoPedido(caneta, 5))
 pedido_da_ana = registrar_pedido(1, lambda: Pedido(cliente_ana, itens_1))
 
-# Beto tem CPF invalido: instanciacao dentro da lambda para ser capturada no try/except
 pedido_do_beto = registrar_pedido(
-    2, lambda: Pedido(Cliente("Beto Lima", Cpf("123"), Email("beto@email.com"), "Rua B, 20", "Itu", Cep("13300000"), "N"), ItensDoPedido())
+    2, lambda: Pedido(criar_cliente("Beto Lima", "123", "beto@email.com", "Rua B, 20", "Itu", "13300000", "N"), ItensDoPedido())
 )
 
 itens_3 = ItensDoPedido()
 itens_3.adicionar(ItemDoPedido(livro, 1))
 pedido_da_ana_dois = registrar_pedido(3, lambda: Pedido(cliente_ana, itens_3))
 
-# Caio tem email invalido: instanciacao dentro da lambda
 pedido_do_caio = registrar_pedido(
-    4, lambda: Pedido(Cliente("Caio Cruz", Cpf("22233344455"), Email("caiosemarroba"), "Rua C, 30", "Salto", Cep("13320000"), "N"), ItensDoPedido())
+    4, lambda: Pedido(criar_cliente("Caio Cruz", "22233344455", "caiosemarroba", "Rua C, 30", "Salto", "13320000", "N"), ItensDoPedido())
 )
 
 pedido_do_diego = registrar_pedido(
@@ -280,9 +295,8 @@ itens_6 = ItensDoPedido()
 itens_6.adicionar(ItemDoPedido(fone, 1))
 pedido_da_eva = registrar_pedido(6, lambda: Pedido(cliente_eva, itens_6))
 
-# Fay tem CEP invalido: instanciacao dentro da lambda
 pedido_da_fay = registrar_pedido(
-    7, lambda: Pedido(Cliente("Fay Dias", Cpf("55566677788"), Email("fay@email.com"), "Rua F, 60", "Salto", Cep("0"), "N"), ItensDoPedido())
+    7, lambda: Pedido(criar_cliente("Fay Dias", "55566677788", "fay@email.com", "Rua F, 60", "Salto", "0", "N"), ItensDoPedido())
 )
 
 itens_8 = ItensDoPedido()
@@ -298,4 +312,4 @@ print(f"cancelar 1: {pedidos.cancelar_pedido(1)}")
 
 pedidos.imprimir_relatorio()
 print(f"arrecadado: {pedidos.calcular_total_arrecadado()}")
-print(f"abertos: {pedidos.contar_pedidos_abertos()}")
+print(f"abertos: {pedidos.contar_pedidos_abertos()}") 
